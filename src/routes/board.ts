@@ -42,9 +42,14 @@ export default async function boardRoutes(app: FastifyInstance) {
 			return reply.status(401).send({ error: 'Authentication required' });
 		}
 
+		const jwtSecret = process.env.JWT_SECRET;
+		if (!jwtSecret) {
+			return reply.status(500).send({ error: 'Server misconfiguration' });
+		}
+
 		let userId: string | undefined;
 		try {
-			const payload = jwt.verify(token, process.env.JWT_SECRET ?? 'monster') as jwt.JwtPayload;
+			const payload = jwt.verify(token, jwtSecret) as jwt.JwtPayload;
 			userId = typeof payload.id === 'string'
 				? payload.id
 				: typeof payload.username === 'string' ? payload.username : undefined;

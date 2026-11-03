@@ -5,4 +5,4 @@ const parseDimension = (value: string | undefined, fallback: number): number => 
 
 export const CANVAS_WIDTH = parseDimension(process.env.CANVAS_WIDTH, 1000);
 export const CANVAS_HEIGHT = parseDimension(process.env.CANVAS_HEIGHT, 600);
-export const CANVAS_BYTES = CANVAS_WIDTH * CANVAS_HEIGHT * 4;
+export const CANVAS_BYTES = (CANVAS_WIDTH * CANVAS_HEIGHT) / 2;

@@ -15,7 +15,20 @@ import { canvas } from "./utilities/canvas.js";
 import { startPixelPlacementPersistence } from "./utilities/pixelPlacementPersistence.js";
 import cors from "@fastify/cors";
 
-const app = Fastify({ logger: true });
+const app = Fastify({
+    logger: {
+        serializers: {
+            req(req) {
+                return {
+                    method: req.method,
+                    url: req.url ? req.url.split('?')[0] : req.url,
+                    hostname: req.hostname,
+                    remoteAddress: req.ip
+                };
+            }
+        }
+    }
+});
 const port = process.env.PORT || 3001
 const host = process.env.HOST ?? "0.0.0.0";
 
