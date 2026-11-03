@@ -51,8 +51,9 @@ export const startPixelPlacementPersistence = async () => {
                 '>'
             ) as [string, [string, string[]][]][] | null;
 
-            if (!result) {
-                if (batch.length > 0) {
+            const flushBatch = async () => {
+                if (batch.length === 0) return;
+                try {
                     await db.insert(pixelPlacements)
                         .values(batch)
                         .onConflictDoNothing();
@@ -61,15 +62,24 @@ export const startPixelPlacementPersistence = async () => {
                         consumerGroup,
                         ...batch.map((placement) => placement.streamId)
                     );
+                    await streamRedis.xdel(
+                        streamName,
+                        ...batch.map((placement) => placement.streamId)
+                    );
+                } catch (dbErr) {
+                    console.error('Failed to flush pixel placements to Postgres (will retry):', dbErr);
+                } finally {
                     batch = [];
                 }
+            };
 
+            if (!result) {
+                await flushBatch();
                 continue;
             }
 
             const entries = result[0][1];
             for (const [streamId, fields] of entries) {
- 
                 batch.push({
                     streamId,
                     userId: fields[1],
@@ -81,24 +91,13 @@ export const startPixelPlacementPersistence = async () => {
             }
 
             if (batch.length >= batchSize || (Date.now() >= batchDeadline && batch.length > 0)) {
-                await db.insert(pixelPlacements)
-                    .values(batch)
-                    .onConflictDoNothing();
-                await streamRedis.xack(
-                    streamName,
-                    consumerGroup,
-                    ...batch.map((placement) => placement.streamId)
-                );
-                await streamRedis.xdel(
-                    streamName,
-                    ...batch.map((placement) => placement.streamId)
-                );
-                batch = [];
+                await flushBatch();
             }
         }
     } catch (error) {
-        console.error(`Pixel placement persistence failed:`, error);
-        await streamRedis.quit();
-        process.exit(1);
+        console.error(`Pixel placement persistence worker error (retrying in 5s):`, error);
+        setTimeout(() => {
+            void startPixelPlacementPersistence();
+        }, 5000);
     }
 };

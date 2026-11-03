@@ -6,16 +6,27 @@ import { handleMessage } from '../handlers/webSocket.js';
 import { getRateLimit } from '../utilities/rateLimit.js';
 
 const fetchPRPoints = async (participantId: string): Promise<number> => {
-    const response = await fetch(
-        `${process.env.GH_BACKEND_URL}/api/v1/participant/${encodeURIComponent(participantId)}/pr-points`
-    );
+    try {
+        const backendUrl = process.env.GH_BACKEND_URL;
+        if (!backendUrl) return 0;
 
-    if (!response.ok) {
-        throw new Error(`PR points request failed with status ${response.status}`);
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 2000);
+
+        const response = await fetch(
+            `${backendUrl}/api/v1/participant/${encodeURIComponent(participantId)}/pr-points`,
+            { signal: controller.signal }
+        ).finally(() => clearTimeout(timeout));
+
+        if (!response.ok) {
+            return 0;
+        }
+
+        const body = await response.json() as { data?: number };
+        return typeof body.data === 'number' ? body.data : 0;
+    } catch {
+        return 0;
     }
-
-    const body = await response.json() as { data?: number };
-    return body.data ?? 0;
 };
 
 const PR_POINTS_CACHE_TTL = 10_000;
@@ -54,9 +65,9 @@ export default async function wsRoutes(app: FastifyInstance) {
                 return prPoints;
             }
 
+            prPointsFetchedAt = now;
             try {
                 prPoints = await fetchPRPoints(uid);
-                prPointsFetchedAt = now;
             } catch (error) {
                 app.log.error(error, `Unable to fetch PR points for ${uid}`);
             }
