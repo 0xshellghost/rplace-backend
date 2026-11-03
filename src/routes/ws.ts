@@ -47,7 +47,7 @@ export default async function wsRoutes(app: FastifyInstance) {
 
             const now = Date.now();
             if (now - prPointsFetchedAt < PR_POINTS_CACHE_TTL) {
-                return prPoints.points;
+                return prPoints;
             }
 
             try {
@@ -58,7 +58,7 @@ export default async function wsRoutes(app: FastifyInstance) {
                 app.log.error(error, `Unable to fetch PR points for ${userId}`);
             }
 
-            return prPoints.points;
+            return prPoints;
         };
 
         activeClients.add(socket);

@@ -20,7 +20,7 @@ export const handleMessage = async (
     socket: WebSocket,
     message: Buffer,
     userId: string,
-    getPRPoints: () => Promise<number>
+    getPRPoints: (userId: string) => Promise<number>
 ) => {
     try {
         let data: { type: string; x: number; y: number; color: number; placementId?: string };
