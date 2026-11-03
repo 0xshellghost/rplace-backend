@@ -25,9 +25,21 @@ export default async function boardRoutes(app: FastifyInstance) {
 				return reply.status(500).send({ error: 'Internal Server Error' });
 			}
 
+			if (boardBuffer.length !== CANVAS_BYTES) {
+				if (boardBuffer.length > CANVAS_BYTES) {
+					boardBuffer = boardBuffer.subarray(0, CANVAS_BYTES);
+				} else {
+					const padded = Buffer.alloc(CANVAS_BYTES);
+					boardBuffer.copy(padded);
+					boardBuffer = padded;
+				}
+				await redis.set(CANVAS_KEY, boardBuffer);
+			}
+
 			const sequence = await redis.get('canvas:seq');
 			reply.header('X-Canvas-Sequence', sequence || '0');
 			reply.header('Content-Type', 'application/octet-stream');
+			reply.header('Content-Length', String(CANVAS_BYTES));
 			reply.header('Cache-Control', 'no-store');
 			return reply.send(boardBuffer);
 		} catch (error) {
