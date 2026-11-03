@@ -49,7 +49,10 @@ export default async function boardRoutes(app: FastifyInstance) {
 	});
 
 	app.put<{ Body: Buffer }>('/', async (request, reply) => {
-		const token = request.cookies?.jwt;
+		const token = request.cookies?.jwt
+			|| (request.headers.authorization?.startsWith('Bearer ')
+				? request.headers.authorization.slice(7)
+				: undefined);
 		if (!token) {
 			return reply.status(401).send({ error: 'Authentication required' });
 		}
@@ -60,16 +63,20 @@ export default async function boardRoutes(app: FastifyInstance) {
 		}
 
 		let userId: string | undefined;
+		let isAdmin = false;
 		try {
 			const payload = jwt.verify(token, jwtSecret) as jwt.JwtPayload;
 			userId = typeof payload.id === 'string'
 				? payload.id
 				: typeof payload.username === 'string' ? payload.username : undefined;
+			if (payload.roles && typeof payload.roles === 'object' && payload.roles.isAdmin) {
+				isAdmin = true;
+			}
 		} catch {
 			return reply.status(401).send({ error: 'Invalid JWT token' });
 		}
 
-		if (!userId || !ALLOWED_UPLOAD_USERS.includes(userId)) {
+		if (!isAdmin && (!userId || !ALLOWED_UPLOAD_USERS.includes(userId))) {
 			return reply.status(403).send({ error: 'Board upload is not allowed for this user' });
 		}
 
